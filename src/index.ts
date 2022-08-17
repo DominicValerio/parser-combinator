@@ -37,24 +37,36 @@ function err(err: string): Result {
 	}
 }
 
-let src = "3 + 3 * 3"
-
 function regex(re: RegExp): Parser {
 	return () => {
 		const res = re.exec(ctx.src.slice(ctx.idx))
-		if (res && res.index == ctx.idx) {
+		if (res && res.index == ctx.idx && res[0].length > 0) {
+			ctx.idx = res.index
 			return ok(res[0])
 		}
 		return err("Regex unsuccessful")
 	}
 }
 
+function choice(parsers: Parser[]): Parser {
+	return () => {
+		for (const p of parsers) {
+			let res = p()
+			if (res.error == null) {
+				return res
+			}
+		}
+		return err("Couldn't match")
+	}
+}
+
 const num = regex(/[0-9]*/)
+const op = regex(/(\+)|(\-)/)
 
 function parse(src : string) {
 	ctx.src = src
 	ctx.idx = 0
-	return num()
+	return op()
 }
 
-printj(parse("12345"))
+printj(parse("+"))
