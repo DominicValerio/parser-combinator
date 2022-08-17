@@ -31,6 +31,7 @@ function str(text) {
         if (slice != text) {
             return err(`${slice} is not equal to ${text}`);
         }
+        ctx.idx += slice.length;
         return ok(slice);
     };
 }
@@ -44,7 +45,7 @@ function regex(re, errormsg) {
         return ok(text);
     };
 }
-// match zero or more of the Parser's pattern
+// match zero or more of the Parser's pattern (called many)
 function zeroOrMore(p) {
     return () => {
         let values = [];
@@ -71,6 +72,7 @@ function oneOf(parsers) {
             }
             ctx.idx = oldIdx;
         }
+        print("notok\n");
         return err("No match found in choice()");
     };
 }
@@ -99,7 +101,14 @@ function map(p, callback) {
 // makes a parser not return an error, therefore making it optional
 function optional(p) {
     return () => {
-        return { value: p().value, error: null };
+        let oldIdx = ctx.idx;
+        let res = p();
+        if (res.error != null) {
+            ctx.idx = oldIdx;
+            eprint(res.error);
+            print("\n");
+        }
+        return { value: res.value, error: null };
     };
 }
 // local parsers
@@ -107,31 +116,42 @@ const whitespace = regex(/( )*|(\t)*/);
 const num = map(regex(/[0-9]*/, "No number found"), parseInt);
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
 const additive = regex(/(\+)|(\-)/, "No additive found");
+function box(p) {
+    return () => {
+        let oldIdx = ctx.idx;
+        let res = p();
+        ctx.idx = oldIdx;
+        return res;
+    };
+}
 const product = sequence([
     num,
-    mul,
-    num
+    optional(sequence([mul, num]))
 ]);
 const sum = sequence([
     product,
-    zeroOrMore(sequence([additive, product]))
+    optional(sequence([additive, product]))
 ]);
-const expr = oneOf([
-    sum,
-    product,
-    num
-]);
+// const expr = oneOf([
+// 	sum,
+// 	product
+// ])
+const expr = sum;
 const parser = () => {
     let error = null;
     let value = [];
     while (ctx.idx != ctx.src.length) {
         whitespace();
         let v = expr();
-        value.push(v.value);
         if (v.error) {
-            v.error = error;
+            error = v.error;
+            printj(ctx);
+            print("\n");
+            printj(value);
+            panic("");
             break;
         }
+        value.push(v.value);
     }
     return { value: value, error: error };
 };
@@ -140,4 +160,6 @@ function parse(src) {
     ctx.idx = 0;
     return parser();
 }
-printj(parse("3+2*3"));
+// printj(parse("1*2+3"))
+// print("\n")
+printj(parse("3+3*2"));

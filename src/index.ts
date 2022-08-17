@@ -44,6 +44,7 @@ function str(text: string): Parser {
 		if (slice != text) {
 			return err(`${slice} is not equal to ${text}`)
 		}
+		ctx.idx += slice.length
 		return ok(slice)
 	}
 }
@@ -58,7 +59,7 @@ function regex(re: RegExp, errormsg?: string): Parser {
 		return ok(text)
 	}
 }
-// match zero or more of the Parser's pattern
+// match zero or more of the Parser's pattern (called many)
 function zeroOrMore(p: Parser): Parser {
 	return () => {
 		let values = []
@@ -77,7 +78,6 @@ function zeroOrMore(p: Parser): Parser {
 // match one of the parsers in the list
 function oneOf(parsers: Parser[]): Parser {
 	return () => {
-
 		for (const p of parsers) {
 			let oldIdx = ctx.idx
 			let res = p()
@@ -86,6 +86,7 @@ function oneOf(parsers: Parser[]): Parser {
 			}
 			ctx.idx = oldIdx
 		}
+		print("notok\n")
 		return err("No match found in choice()")
 	}
 }
@@ -114,7 +115,14 @@ function map(p: Parser, callback: (oldvalue: any) => any): Parser {
 // makes a parser not return an error, therefore making it optional
 function optional(p: Parser): Parser {
 	return () => {
-		return {value: p().value, error: null}
+		let oldIdx = ctx.idx
+		let res = p()
+		if (res.error != null) {
+			ctx.idx = oldIdx
+			eprint(res.error)
+			print("\n")
+		}
+		return {value: res.value, error: null}
 	}
 }
 
@@ -128,24 +136,32 @@ const num = map(
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found")
 const additive = regex(/(\+)|(\-)/, "No additive found")
 
+function box(p: Parser): Parser {
+	return () => {
+		let oldIdx = ctx.idx
+		let res = p()
+		ctx.idx = oldIdx
+		return res
+	}
+}
+
 const product = sequence([
 	num,
-	mul,
-	num
+	optional(sequence([mul, num]))
 ])
 
 const sum = sequence([
 	product,
-	zeroOrMore(sequence([additive, product]))
+	optional(sequence([additive, product]))
 ])
 
 
-const expr = oneOf([
-	sum,
-	product,
-	num
-])
+// const expr = oneOf([
+// 	sum,
+// 	product
+// ])
 
+const expr = sum
 
 
 const parser = () => {
@@ -154,11 +170,15 @@ const parser = () => {
 	while (ctx.idx != ctx.src.length) {
 		whitespace()
 		let v = expr()
-		value.push(v.value)
 		if (v.error) {
-			v.error = error
+			error = v.error
+			printj(ctx)
+			print("\n")
+			printj(value)
+			panic("")
 			break;
 		}
+		value.push(v.value)
 	}   
 	return {value: value, error: error}
 }
@@ -169,4 +189,6 @@ function parse(src: string) {
 	return parser()
 }
 
-printj(parse("3+2*3"))
+// printj(parse("1*2+3"))
+// print("\n")
+printj(parse("3+3*2"))
