@@ -2,7 +2,7 @@ import process, {stdin, stdout, stderr, exit} from "process"
 import util from "util"
 
 const print = (format?: any, ...param: any[]) => stdout.write(util.format(format, ...param))
-const printj = (value: any) => print(JSON.stringify(value, null, 4))
+const printj = (value: any) => print(JSON.stringify(value, null, 2))
 const eprint = (value: any) => stderr.write(util.format(value))
 const panic = (message: any) => {
 	eprint(message)
@@ -15,8 +15,10 @@ type Context = {
 }
 let ctx: Context = {src: "", idx: 0}
 
+type Value = string | number | Value[]
+
 type Result = {
-	value: any,
+	value: Value,
 	error: string | null,
 }
 
@@ -31,7 +33,7 @@ function ok(value: any): Result {
 
 function err(err: string): Result {
 	return {
-		value: null,
+		value: "",
 		error: err,
 	}
 }
@@ -75,13 +77,16 @@ function many(p: Parser): Parser {
 // match one of the parsers in the list
 function choice(parsers: Parser[]): Parser {
 	return () => {
+
 		for (const p of parsers) {
+			let oldIdx = ctx.idx
 			let res = p()
 			if (res.error == null) {
 				return res
 			}
+			ctx.idx = oldIdx
 		}
-		return err("Couldn't match")
+		return err("No match found in choice()")
 	}
 }
 // match a sequence of requirements
@@ -113,29 +118,50 @@ function optional(p: Parser): Parser {
 	}
 }
 
+// local parsers
+const whitespace = regex(/( )*|(\t)*/)
+
 const num = map(
 	regex(/[0-9]*/, "No number found"), 
 	parseInt
 )
 const op = regex(/(\+)|(\-)/, "No operator found")
+
 const binop = sequence([
 	num,
+	optional(whitespace),
 	op,
+	optional(whitespace),
 	num
 ])
+
+
 const expr = choice([
 	binop,
 	num
 ])
 
-const whitespace = regex(/( )*/)
 
-const parser = choice([expr, whitespace])
 
-function parse(src : string) {
+const parser = () => {
+	let error = null
+	let value = []
+	while (ctx.idx != ctx.src.length) {
+		whitespace()
+		let v = expr()
+		value.push(v.value)
+		if (v.error) {
+			v.error = error
+			break;
+		}
+	}   
+	return {value: value, error: error}
+}
+
+function parse(src: string) {
 	ctx.src = src
 	ctx.idx = 0
 	return parser()
 }
 
-printj(parse("9+10 10"))
+printj(parse("3+3"))

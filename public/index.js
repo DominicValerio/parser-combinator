@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const process_1 = require("process");
 const util_1 = __importDefault(require("util"));
 const print = (format, ...param) => process_1.stdout.write(util_1.default.format(format, ...param));
-const printj = (value) => print(JSON.stringify(value, null, 4));
+const printj = (value) => print(JSON.stringify(value, null, 2));
 const eprint = (value) => process_1.stderr.write(util_1.default.format(value));
 const panic = (message) => {
     eprint(message);
@@ -21,7 +21,7 @@ function ok(value) {
 }
 function err(err) {
     return {
-        value: null,
+        value: "",
         error: err,
     };
 }
@@ -64,12 +64,14 @@ function many(p) {
 function choice(parsers) {
     return () => {
         for (const p of parsers) {
+            let oldIdx = ctx.idx;
             let res = p();
             if (res.error == null) {
                 return res;
             }
+            ctx.idx = oldIdx;
         }
-        return err("Couldn't match");
+        return err("No match found in choice()");
     };
 }
 // match a sequence of requirements
@@ -100,22 +102,38 @@ function optional(p) {
         return { value: p().value, error: null };
     };
 }
+// local parsers
+const whitespace = regex(/( )*|(\t)*/);
 const num = map(regex(/[0-9]*/, "No number found"), parseInt);
 const op = regex(/(\+)|(\-)/, "No operator found");
 const binop = sequence([
     num,
+    optional(whitespace),
     op,
+    optional(whitespace),
     num
 ]);
 const expr = choice([
     binop,
     num
 ]);
-const whitespace = regex(/( )*/);
-const parser = choice([expr, whitespace]);
+const parser = () => {
+    let error = null;
+    let value = [];
+    while (ctx.idx != ctx.src.length) {
+        whitespace();
+        let v = expr();
+        value.push(v.value);
+        if (v.error) {
+            v.error = error;
+            break;
+        }
+    }
+    return { value: value, error: error };
+};
 function parse(src) {
     ctx.src = src;
     ctx.idx = 0;
     return parser();
 }
-printj(parse("9+10 10"));
+printj(parse("3+3"));
