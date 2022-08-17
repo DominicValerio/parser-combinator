@@ -59,7 +59,7 @@ function regex(re: RegExp, errormsg?: string): Parser {
 	}
 }
 // match zero or more of the Parser's pattern
-function many(p: Parser): Parser {
+function zeroOrMore(p: Parser): Parser {
 	return () => {
 		let values = []
 		while (true) {
@@ -75,7 +75,7 @@ function many(p: Parser): Parser {
 	}
 }
 // match one of the parsers in the list
-function choice(parsers: Parser[]): Parser {
+function oneOf(parsers: Parser[]): Parser {
 	return () => {
 
 		for (const p of parsers) {
@@ -125,19 +125,24 @@ const num = map(
 	regex(/[0-9]*/, "No number found"), 
 	parseInt
 )
-const op = regex(/(\+)|(\-)/, "No operator found")
+const mul = regex(/(\*)|(\/)/, "No multiplicitave found")
+const additive = regex(/(\+)|(\-)/, "No additive found")
 
-const binop = sequence([
+const product = sequence([
 	num,
-	optional(whitespace),
-	op,
-	optional(whitespace),
+	mul,
 	num
 ])
 
+const sum = sequence([
+	product,
+	zeroOrMore(sequence([additive, product]))
+])
 
-const expr = choice([
-	binop,
+
+const expr = oneOf([
+	sum,
+	product,
 	num
 ])
 
@@ -164,4 +169,4 @@ function parse(src: string) {
 	return parser()
 }
 
-printj(parse("3+3"))
+printj(parse("3+2*3"))

@@ -45,7 +45,7 @@ function regex(re, errormsg) {
     };
 }
 // match zero or more of the Parser's pattern
-function many(p) {
+function zeroOrMore(p) {
     return () => {
         let values = [];
         while (true) {
@@ -61,7 +61,7 @@ function many(p) {
     };
 }
 // match one of the parsers in the list
-function choice(parsers) {
+function oneOf(parsers) {
     return () => {
         for (const p of parsers) {
             let oldIdx = ctx.idx;
@@ -105,16 +105,20 @@ function optional(p) {
 // local parsers
 const whitespace = regex(/( )*|(\t)*/);
 const num = map(regex(/[0-9]*/, "No number found"), parseInt);
-const op = regex(/(\+)|(\-)/, "No operator found");
-const binop = sequence([
+const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
+const additive = regex(/(\+)|(\-)/, "No additive found");
+const product = sequence([
     num,
-    optional(whitespace),
-    op,
-    optional(whitespace),
+    mul,
     num
 ]);
-const expr = choice([
-    binop,
+const sum = sequence([
+    product,
+    zeroOrMore(sequence([additive, product]))
+]);
+const expr = oneOf([
+    sum,
+    product,
     num
 ]);
 const parser = () => {
@@ -136,4 +140,4 @@ function parse(src) {
     ctx.idx = 0;
     return parser();
 }
-printj(parse("3+3"));
+printj(parse("3+2*3"));
