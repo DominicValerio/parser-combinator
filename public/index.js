@@ -25,16 +25,42 @@ function err(err) {
         error: err,
     };
 }
-function regex(re) {
+function str(text) {
     return () => {
-        const res = re.exec(ctx.src.slice(ctx.idx));
-        if (res && res.index == ctx.idx && res[0].length > 0) {
-            ctx.idx = res.index;
-            return ok(res[0]);
+        let slice = ctx.src.slice(ctx.idx, ctx.idx + text.length);
+        if (slice != text) {
+            return err(`${slice} is not equal to ${text}`);
         }
-        return err("Regex unsuccessful");
+        return ok(slice);
     };
 }
+function regex(re, errormsg) {
+    return () => {
+        const res = re.exec(ctx.src.slice(ctx.idx));
+        if (!res || res[0].length <= 0)
+            return err(errormsg || "");
+        const text = res[0];
+        ctx.idx += text.length;
+        return ok(text);
+    };
+}
+// match zero or more of the Parser's pattern
+function many(p) {
+    return () => {
+        let values = [];
+        while (true) {
+            let temp = ctx;
+            let res = p();
+            if (res.error) {
+                ctx = temp;
+                break;
+            }
+            values.push(res.value);
+        }
+        return ok(values);
+    };
+}
+// match one of the parsers in the list
 function choice(parsers) {
     return () => {
         for (const p of parsers) {
@@ -46,11 +72,50 @@ function choice(parsers) {
         return err("Couldn't match");
     };
 }
-const num = regex(/[0-9]*/);
-const op = regex(/(\+)|(\-)/);
+// match a sequence of requirements
+function sequence(parsers) {
+    return () => {
+        let values = [];
+        for (const p of parsers) {
+            let res = p();
+            if (res.error != null) {
+                return res;
+            }
+            values.push(res.value);
+        }
+        return { value: values, error: null };
+    };
+}
+// used to transform a Parser's value
+function map(p, callback) {
+    return () => {
+        let res = p();
+        res.value = callback(res.value);
+        return res;
+    };
+}
+// makes a parser not return an error, therefore making it optional
+function optional(p) {
+    return () => {
+        return { value: p().value, error: null };
+    };
+}
+const num = map(regex(/[0-9]*/, "No number found"), parseInt);
+const op = regex(/(\+)|(\-)/, "No operator found");
+const binop = sequence([
+    num,
+    op,
+    num
+]);
+const expr = choice([
+    binop,
+    num
+]);
+const whitespace = regex(/( )*/);
+const parser = choice([expr, whitespace]);
 function parse(src) {
     ctx.src = src;
     ctx.idx = 0;
-    return op();
+    return parser();
 }
-printj(parse("+"));
+printj(parse("9+10 10"));
