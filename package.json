@@ -1,0 +1,15 @@
+{
+  "name": "parsing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "public/index.js",
+  "scripts": {
+    "start": "node public/index.js",
+    "dev": "tsc --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^18.7.6"
+  }
+}
