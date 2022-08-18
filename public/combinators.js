@@ -18,7 +18,8 @@ const panic = (message) => {
     (0, process_1.exit)(1);
 };
 exports.panic = panic;
-exports.ctx = { src: "", idx: 0 };
+// Parsers
+exports.ctx = { src: "", idx: 0 }; // global variable for convienences
 function ok(value) {
     return {
         value: value,
@@ -129,6 +130,14 @@ function optional(p) {
 exports.optional = optional;
 const sequenceMap = (parsers, callback) => map(sequence(parsers), callback);
 exports.sequenceMap = sequenceMap;
+function skip(p, toSkip) {
+    return () => {
+        let { value, error } = sequence([p, toSkip])();
+        value = value[0];
+        return { value: value, error: error };
+    };
+}
+exports.skip = skip;
 // export function box(p: Parser): Parser {
 // 	return () => {
 // 		let oldIdx = ctx.idx
@@ -140,11 +149,3 @@ exports.sequenceMap = sequenceMap;
 // export const thru = (target: Parser, wrapper: (p: Parser) => Parser) => {
 // 	return wrapper(target)
 // }
-function skip(p, toSkip) {
-    return () => {
-        let { value, error } = sequence([p, toSkip])();
-        value = value[0];
-        return { value: value, error: error };
-    };
-}
-exports.skip = skip;

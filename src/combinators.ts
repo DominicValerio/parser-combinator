@@ -10,6 +10,7 @@ export const panic = (message: any) => {
 	exit(1)
 }
 
+// types
 export type Context = {
 	src: string
 	idx: number
@@ -24,7 +25,8 @@ export type Result = {
 
 export type Parser = () => Result
 
-export let ctx: Context = {src: "", idx: 0}
+// Parsers
+export let ctx: Context = {src: "", idx: 0} // global variable for convienences
 
 export function ok(value: any): Result {
 	return {
@@ -133,6 +135,14 @@ export function optional(p: Parser): Parser {
 export const sequenceMap = 
 (parsers: Parser[], callback: (oldvalue: Value) => Value) => map(sequence(parsers), callback)
 
+export function skip(p: Parser, toSkip: Parser): Parser {
+	return () => {
+		let {value, error} = sequence([p, toSkip])()
+		value = (value as Value[])[0]
+		return  {value: value, error: error}
+	}
+}
+
 // export function box(p: Parser): Parser {
 // 	return () => {
 // 		let oldIdx = ctx.idx
@@ -145,11 +155,3 @@ export const sequenceMap =
 // export const thru = (target: Parser, wrapper: (p: Parser) => Parser) => {
 // 	return wrapper(target)
 // }
-
-export function skip(p: Parser, toSkip: Parser): Parser {
-	return () => {
-		let {value, error} = sequence([p, toSkip])()
-		value = (value as Value[])[0]
-		return  {value: value, error: error}
-	}
-}

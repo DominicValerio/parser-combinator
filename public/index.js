@@ -36,19 +36,18 @@ function leftAssociate(oldValue) {
     return -1;
 }
 const product = (0, combinators_1.sequenceMap)([
-    num,
-    (0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([mul, num]))
+    (0, combinators_1.skip)(num, whitespace),
+    (0, combinators_1.skip)((0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([(0, combinators_1.skip)(mul, whitespace), num])), whitespace)
 ], leftAssociate);
 const sum = (0, combinators_1.sequenceMap)([
-    product,
-    (0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([additive, product]))
+    (0, combinators_1.skip)(product, whitespace),
+    (0, combinators_1.skip)((0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([(0, combinators_1.skip)(additive, whitespace), product])), whitespace)
 ], leftAssociate);
 const expr = sum;
 const parser = () => {
     let error = null;
     let value = [];
     while (combinators_1.ctx.idx != combinators_1.ctx.src.length) {
-        //whitespace()
         let v = expr();
         if (v.error) {
             error = v.error;
@@ -68,16 +67,8 @@ function parse(src) {
     combinators_1.ctx.idx = 0;
     return parser();
 }
-//printj(parse("1*2+3"))
-//printj(parse("2+3"))
-//let res = parse("2*3+1*8+3")
 let res = parse("2 * 3 + 1 * 8 + 3");
-(0, combinators_1.printj)(res);
-(0, combinators_1.print)("\n");
-if (res.error)
-    (0, combinators_1.panic)(res.error);
 function walk(v) {
-    //let v = res[0]
     if (!isNaN(v)) { // number
         return v;
     }

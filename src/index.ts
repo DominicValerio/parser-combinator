@@ -32,20 +32,19 @@ function leftAssociate(oldValue: Value): Value {
 		}
 		return res
 	}
-	print("unreachable\n")
-	printj(oldValue); print("\n")
+	print("unreachable\n"); printj(oldValue); print("\n")
 	return -1
 }
 
 const product = sequenceMap([
-	num,
-	zeroOrMore(sequence([mul, num]))
+	skip(num, whitespace),
+	skip(zeroOrMore(sequence([skip(mul, whitespace), num])), whitespace)
 ], 
 leftAssociate)
 
 const sum = sequenceMap([
-	product,
-	zeroOrMore(sequence([additive, product]))
+	skip(product, whitespace),
+	skip(zeroOrMore(sequence([skip(additive, whitespace), product])), whitespace)
 ], 
 leftAssociate)
 
@@ -55,7 +54,6 @@ const parser = () => {
 	let error = null
 	let value = []
 	while (ctx.idx != ctx.src.length) {
-		//whitespace()
 		let v = expr()
 		if (v.error) {
 			error = v.error
@@ -77,16 +75,9 @@ function parse(src: string) {
 	return parser()
 }
 
-//printj(parse("1*2+3"))
-//printj(parse("2+3"))
-//let res = parse("2*3+1*8+3")
 let res = parse("2 * 3 + 1 * 8 + 3")
-printj(res)
-print("\n") 
-if (res.error) panic(res.error)
 
 function walk(v: Value): Value {
-	//let v = res[0]
 	if (!isNaN(v as number )) { // number
 		return v
 	} else if (v instanceof Array) { // Value[]
@@ -113,10 +104,7 @@ function walk(v: Value): Value {
 		panic("Found string in tree")
 		return v
 	}
-	print("Unreachable\n")
-	printj(v)
-	print((v as BinOp).l !== undefined)
-	panic("")
+	print("Unreachable\n");printj(v);print((v as BinOp).l !== undefined);panic("")
 	return 0
 }
 print(walk(res.value))
