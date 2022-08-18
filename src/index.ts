@@ -51,12 +51,16 @@ function str(text: string): Parser {
 
 function regex(re: RegExp, errormsg?: string): Parser {
 	return () => {
-		const res = re.exec(ctx.src.slice(ctx.idx))
-		if (!res || res[0].length <= 0) 
-			return err(errormsg || "")
-		const text = res[0]
-		ctx.idx += text.length
-		return ok(text)
+		re.lastIndex = ctx.idx
+		let slice = ctx.src.slice(ctx.idx)
+		const res = re.exec(slice)
+		
+		if (res && res[0] && slice.startsWith(res[0])) {
+			const text = res[0]
+			ctx.idx += text.length
+			return ok(text)
+		}
+		return err(errormsg || "")
 	}
 }
 // match zero or more of the Parser's pattern (called many)
@@ -65,7 +69,7 @@ function zeroOrMore(p: Parser): Parser {
 		let values = []
 		let oldIdx = ctx.idx
 		let curP = p()
-		while (!curP.error) {
+		while (!curP.error ) {
 			values.push(curP.value)
 			oldIdx = ctx.idx
 			curP = p()
@@ -137,7 +141,7 @@ function box(p: Parser): Parser {
 const whitespace = regex(/( )*|(\t)*/)
 
 const num = map(
-	regex(/[0-9]*/, "No number found"), 
+	regex(/[0-9]+/, "No number found"), 
 	parseInt
 )
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found")
@@ -152,7 +156,6 @@ function leftAssociate(oldValue: Value): any {
 		let guaranteed = v[0]
 		let optionPart = v[1]
 		// printj(oldValue); print("\n") 
-		// return oldValue
 		//printj(guaranteed); print("\n") 
 		// printj(optionPart); print("\n")
 		if (optionPart.length == 0) return guaranteed
@@ -166,6 +169,7 @@ function leftAssociate(oldValue: Value): any {
 		}
 		return res
 	}
+	print(oldValue)
 	panic("unreachable\n")
 }
 
@@ -211,4 +215,4 @@ function parse(src: string) {
 
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-printj(parse("1+2*3"))
+printj(parse("2+2*3"))

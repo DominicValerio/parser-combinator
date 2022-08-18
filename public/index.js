@@ -37,12 +37,15 @@ function str(text) {
 }
 function regex(re, errormsg) {
     return () => {
-        const res = re.exec(ctx.src.slice(ctx.idx));
-        if (!res || res[0].length <= 0)
-            return err(errormsg || "");
-        const text = res[0];
-        ctx.idx += text.length;
-        return ok(text);
+        re.lastIndex = ctx.idx;
+        let slice = ctx.src.slice(ctx.idx);
+        const res = re.exec(slice);
+        if (res && res[0] && slice.startsWith(res[0])) {
+            const text = res[0];
+            ctx.idx += text.length;
+            return ok(text);
+        }
+        return err(errormsg || "");
     };
 }
 // match zero or more of the Parser's pattern (called many)
@@ -119,7 +122,7 @@ function box(p) {
 }
 // local parsers
 const whitespace = regex(/( )*|(\t)*/);
-const num = map(regex(/[0-9]*/, "No number found"), parseInt);
+const num = map(regex(/[0-9]+/, "No number found"), parseInt);
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
 const additive = regex(/(\+)|(\-)/, "No additive found");
 const sequenceMap = (parsers, callback) => map(sequence(parsers), callback);
@@ -130,7 +133,6 @@ function leftAssociate(oldValue) {
         let guaranteed = v[0];
         let optionPart = v[1];
         // printj(oldValue); print("\n") 
-        // return oldValue
         //printj(guaranteed); print("\n") 
         // printj(optionPart); print("\n")
         if (optionPart.length == 0)
@@ -147,6 +149,7 @@ function leftAssociate(oldValue) {
         }
         return res;
     }
+    print(oldValue);
     panic("unreachable\n");
 }
 const product = sequenceMap([
@@ -184,4 +187,4 @@ function parse(src) {
 }
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-printj(parse("1+2*3"));
+printj(parse("2+2*3"));
