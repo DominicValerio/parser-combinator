@@ -1,140 +1,21 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const process_1 = require("process");
-const util_1 = __importDefault(require("util"));
-const print = (format, ...param) => process_1.stdout.write(util_1.default.format(format, ...param));
-const printj = (value) => print(JSON.stringify(value, null, 2));
-const eprint = (value) => process_1.stderr.write(util_1.default.format(value));
-const panic = (message) => {
-    eprint(message);
-    (0, process_1.exit)(1);
-};
-let ctx = { src: "", idx: 0 };
-function ok(value) {
-    return {
-        value: value,
-        error: null,
-    };
-}
-function err(err) {
-    return {
-        value: "",
-        error: err,
-    };
-}
-function str(text) {
-    return () => {
-        let slice = ctx.src.slice(ctx.idx, ctx.idx + text.length);
-        if (slice != text) {
-            return err(`${slice} is not equal to ${text}`);
-        }
-        ctx.idx += slice.length;
-        return ok(slice);
-    };
-}
-function regex(re, errormsg) {
-    return () => {
-        re.lastIndex = ctx.idx;
-        let slice = ctx.src.slice(ctx.idx);
-        const res = re.exec(slice);
-        if (res && res[0] && slice.startsWith(res[0])) {
-            const text = res[0];
-            ctx.idx += text.length;
-            return ok(text);
-        }
-        return err(errormsg || "");
-    };
-}
-// match zero or more of the Parser's pattern (called many)
-function zeroOrMore(p) {
-    return () => {
-        let values = [];
-        let oldIdx = ctx.idx;
-        let curP = p();
-        while (!curP.error) {
-            values.push(curP.value);
-            oldIdx = ctx.idx;
-            curP = p();
-        }
-        ctx.idx = oldIdx;
-        return ok(values);
-    };
-}
-// match one of the parsers in the list (also called choice)
-function oneOf(parsers) {
-    return () => {
-        for (const p of parsers) {
-            let oldIdx = ctx.idx;
-            let res = p();
-            if (res.error == null) {
-                return res;
-            }
-            ctx.idx = oldIdx;
-        }
-        return err("No match found in one of the parsers");
-    };
-}
-// match a sequence of requirements
-function sequence(parsers) {
-    return () => {
-        let values = [];
-        for (const p of parsers) {
-            let res = p();
-            if (res.error) { //return early
-                return res;
-            }
-            values.push(res.value);
-        }
-        return { value: values, error: null };
-    };
-}
-// used to transform a Parser's value
-function map(p, callback) {
-    return () => {
-        let res = p();
-        res.value = callback(res.value);
-        return res;
-    };
-}
-// makes a parser not return an error, therefore making it optional
-function optional(p) {
-    return () => {
-        let oldIdx = ctx.idx;
-        let res = p();
-        if (res.error != null) {
-            ctx.idx = oldIdx;
-            // eprint(res.error)
-            // print("\n")
-        }
-        return { value: res.value, error: null };
-    };
-}
-function box(p) {
-    return () => {
-        let oldIdx = ctx.idx;
-        let res = p();
-        ctx.idx = oldIdx;
-        return res;
-    };
-}
+const combinators_1 = require("./combinators");
 // local parsers
-const whitespace = regex(/( )*|(\t)*/);
-const num = map(regex(/[0-9]+/, "No number found"), parseInt);
-const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
-const additive = regex(/(\+)|(\-)/, "No additive found");
-const sequenceMap = (parsers, callback) => map(sequence(parsers), callback);
+const whitespace = (0, combinators_1.regex)(/( )*|(\t)*/);
+const num = (0, combinators_1.map)((0, combinators_1.regex)(/[0-9]+/, "No number found"), (v) => {
+    let res = parseInt(v);
+    return res;
+});
+const mul = (0, combinators_1.regex)(/(\*)|(\/)/, "No multiplicitave found");
+const additive = (0, combinators_1.regex)(/(\+)|(\-)/, "No additive found");
 // used in a sequence map, [left, [op, right]]
 function leftAssociate(oldValue) {
     if (oldValue && oldValue.hasOwnProperty("length")) {
         let v = oldValue;
         let guaranteed = v[0];
         let optionPart = v[1];
-        // printj(oldValue); print("\n") 
-        //printj(guaranteed); print("\n") 
-        // printj(optionPart); print("\n")
+        // printj(oldValue); print("\n") //printj(guaranteed); print("\n") // printj(optionPart); print("\n")
         if (optionPart.length == 0)
             return guaranteed;
         if (optionPart.length == 1)
@@ -149,31 +30,31 @@ function leftAssociate(oldValue) {
         }
         return res;
     }
-    print(oldValue);
-    panic("unreachable\n");
+    (0, combinators_1.panic)("unreachable\n");
+    return -1;
 }
-const product = sequenceMap([
+const product = (0, combinators_1.sequenceMap)([
     num,
-    zeroOrMore(sequence([mul, num]))
+    (0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([mul, num]))
 ], leftAssociate);
-const sum = sequenceMap([
+const sum = (0, combinators_1.sequenceMap)([
     product,
-    zeroOrMore(sequence([additive, product]))
+    (0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([additive, product]))
 ], leftAssociate);
 const expr = sum;
 const parser = () => {
     let error = null;
     let value = [];
-    while (ctx.idx != ctx.src.length) {
+    while (combinators_1.ctx.idx != combinators_1.ctx.src.length) {
         whitespace();
         let v = expr();
         if (v.error) {
             error = v.error;
-            printj(ctx);
-            print("\n");
-            printj(value);
-            print("\n");
-            panic(error);
+            (0, combinators_1.printj)(combinators_1.ctx);
+            (0, combinators_1.print)("\n");
+            (0, combinators_1.printj)(value);
+            (0, combinators_1.print)("\n");
+            (0, combinators_1.panic)(error);
             break;
         }
         value.push(v.value);
@@ -181,10 +62,47 @@ const parser = () => {
     return { value: value, error: error };
 };
 function parse(src) {
-    ctx.src = src;
-    ctx.idx = 0;
+    combinators_1.ctx.src = src;
+    combinators_1.ctx.idx = 0;
     return parser();
 }
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-printj(parse("2+2*3"));
+let res = parse("2-1+2");
+(0, combinators_1.printj)(res);
+(0, combinators_1.print)("\n");
+function walk(v) {
+    //let v = res[0]
+    if (!isNaN(v)) { // number
+        return v;
+    }
+    else if (v instanceof Array) { // Value[]
+        let res = [];
+        for (const k of v) {
+            res.push(walk(k));
+        }
+        return res;
+    }
+    else if (v.l !== undefined) { // BinOp
+        let k = v;
+        let l = walk(k.l);
+        let r = walk(k.r);
+        switch (k.op) {
+            case '+':
+                return l + r;
+            case '-':
+                return l - r;
+            case '*':
+                return l * r;
+            case '/':
+                return l / r;
+        }
+    }
+    else if (v instanceof String) { // string
+        (0, combinators_1.panic)("Found string in tree");
+        return v;
+    }
+    (0, combinators_1.panic)("Unreachable\n");
+    return 0;
+}
+(0, combinators_1.print)(walk(res.value));

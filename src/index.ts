@@ -1,163 +1,25 @@
-import process, {stdin, stdout, stderr, exit} from "process"
-import util from "util"
-
-const print = (format?: any, ...param: any[]) => stdout.write(util.format(format, ...param))
-const printj = (value: any) => print(JSON.stringify(value, null, 2))
-const eprint = (value: any) => stderr.write(util.format(value))
-const panic = (message: any) => {
-	eprint(message)
-	exit(1)
-}
-
-type Context = {
-	src: string
-	idx: number
-}
-let ctx: Context = {src: "", idx: 0}
-
-type Value = string | number | Value[]
-
-type Result = {
-	value: Value,
-	error: string | null,
-}
-
-type Parser = () => Result
-
-function ok(value: any): Result {
-	return {
-		value: value,
-		error: null,
-	}
-}
-
-function err(err: string): Result {
-	return {
-		value: "",
-		error: err,
-	}
-}
-
-function str(text: string): Parser {
-	return () => {
-		let slice = ctx.src.slice(ctx.idx, ctx.idx + text.length)
-		if (slice != text) {
-			return err(`${slice} is not equal to ${text}`)
-		}
-		ctx.idx += slice.length
-		return ok(slice)
-	}
-}
-
-function regex(re: RegExp, errormsg?: string): Parser {
-	return () => {
-		re.lastIndex = ctx.idx
-		let slice = ctx.src.slice(ctx.idx)
-		const res = re.exec(slice)
-		
-		if (res && res[0] && slice.startsWith(res[0])) {
-			const text = res[0]
-			ctx.idx += text.length
-			return ok(text)
-		}
-		return err(errormsg || "")
-	}
-}
-// match zero or more of the Parser's pattern (called many)
-function zeroOrMore(p: Parser): Parser {
-	return () => {
-		let values = []
-		let oldIdx = ctx.idx
-		let curP = p()
-		while (!curP.error ) {
-			values.push(curP.value)
-			oldIdx = ctx.idx
-			curP = p()
-		}
-		ctx.idx = oldIdx
-		return ok(values)
-	}
-}
-// match one of the parsers in the list (also called choice)
-function oneOf(parsers: Parser[]): Parser {
-	return () => {
-		for (const p of parsers) {
-			let oldIdx = ctx.idx
-			let res = p()
-			if (res.error == null) {
-				return res
-			}
-			ctx.idx = oldIdx
-		}
-		return err("No match found in one of the parsers")
-	}
-}
-// match a sequence of requirements
-function sequence(parsers: Parser[]): Parser {
-	return () => {
-		let values = []
-		for (const p of parsers) {
-			let res = p()
-			if (res.error) { //return early
-				return res
-			}
-			values.push(res.value)
-		}
-		return {value: values, error: null}
-	}
-}
-// used to transform a Parser's value
-function map(p: Parser, callback: (oldvalue: any) => any): Parser {
-	return () => {
-		let res = p()
-		res.value = callback(res.value)
-		return res
-	}
-}
-// makes a parser not return an error, therefore making it optional
-function optional(p: Parser): Parser {
-	return () => {
-		let oldIdx = ctx.idx
-		let res = p()
-		if (res.error != null) {
-			ctx.idx = oldIdx
-			// eprint(res.error)
-			// print("\n")
-		}
-		return {value: res.value, error: null}
-	}
-}
-
-function box(p: Parser): Parser {
-	return () => {
-		let oldIdx = ctx.idx
-		let res = p()
-		ctx.idx = oldIdx
-		return res
-	}
-}
+import {regex, map, sequence, panic, print, printj, zeroOrMore, ctx, Parser, Value, sequenceMap, Result, BinOp} from "./combinators"
 
 // local parsers
 const whitespace = regex(/( )*|(\t)*/)
 
 const num = map(
 	regex(/[0-9]+/, "No number found"), 
-	parseInt
+	(v) => {
+		let res = parseInt(v as string)
+		return res as number
+	}
 )
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found")
 const additive = regex(/(\+)|(\-)/, "No additive found")
 
-const sequenceMap = (parsers: Parser[], callback: (oldvalue: any) => any) => map(sequence(parsers), callback)
-
 // used in a sequence map, [left, [op, right]]
-function leftAssociate(oldValue: Value): any {
+function leftAssociate(oldValue: Value): Value {
 	if (oldValue && oldValue.hasOwnProperty("length")) {
 		let v = oldValue as any[][]
 		let guaranteed = v[0]
 		let optionPart = v[1]
-		// printj(oldValue); print("\n") 
-		//printj(guaranteed); print("\n") 
-		// printj(optionPart); print("\n")
+		// printj(oldValue); print("\n") //printj(guaranteed); print("\n") // printj(optionPart); print("\n")
 		if (optionPart.length == 0) return guaranteed
 		if (optionPart.length == 1) return {l: guaranteed, op: optionPart[0][0], r: optionPart[0][1]}
 		let res: any = {l: guaranteed, op: null, r: null}
@@ -169,8 +31,8 @@ function leftAssociate(oldValue: Value): any {
 		}
 		return res
 	}
-	print(oldValue)
 	panic("unreachable\n")
+	return -1
 }
 
 const product = sequenceMap([
@@ -215,4 +77,39 @@ function parse(src: string) {
 
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-printj(parse("2+2*3"))
+let res = parse("2-1+2")
+printj(res)
+print("\n")
+
+function walk(v: Value): Value {
+	//let v = res[0]
+	if (!isNaN(v as number )) { // number
+		return v
+	} else if (v instanceof Array) { // Value[]
+		let res = []
+		for (const k of v) {
+			res.push(walk(k))
+		}
+		return res
+	} else if ((v as BinOp).l !== undefined) { // BinOp
+		let k = v as BinOp
+		let l = walk(k.l) as number
+		let r = walk(k.r) as number
+		switch (k.op) {
+		case '+':
+			return l + r
+		case '-':
+			return l - r
+		case '*':
+			return l * r
+		case '/':
+			return l / r
+		}
+	} else if (v instanceof String) { // string
+		panic("Found string in tree")
+		return v
+	}
+	panic("Unreachable\n")
+	return 0
+}
+print(walk(res.value))
