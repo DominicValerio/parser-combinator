@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const combinators_1 = require("./combinators");
 // local parsers
-const whitespace = (0, combinators_1.regex)(/( )*|(\t)*/);
+const whitespace = (0, combinators_1.regex)(/( |\t)*/);
 const num = (0, combinators_1.map)((0, combinators_1.regex)(/[0-9]+/, "No number found"), (v) => {
     let res = parseInt(v);
     return res;
@@ -34,7 +34,7 @@ function leftAssociate(oldValue) {
     return -1;
 }
 const product = (0, combinators_1.sequenceMap)([
-    num,
+    (0, combinators_1.skip)(num, whitespace),
     (0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([mul, num]))
 ], leftAssociate);
 const sum = (0, combinators_1.sequenceMap)([
@@ -46,7 +46,7 @@ const parser = () => {
     let error = null;
     let value = [];
     while (combinators_1.ctx.idx != combinators_1.ctx.src.length) {
-        whitespace();
+        //whitespace()
         let v = expr();
         if (v.error) {
             error = v.error;
@@ -68,7 +68,7 @@ function parse(src) {
 }
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-let res = parse("2-1+2");
+let res = parse("2 *3");
 (0, combinators_1.printj)(res);
 (0, combinators_1.print)("\n");
 function walk(v) {
@@ -102,7 +102,10 @@ function walk(v) {
         (0, combinators_1.panic)("Found string in tree");
         return v;
     }
-    (0, combinators_1.panic)("Unreachable\n");
+    (0, combinators_1.print)("Unreachable\n");
+    (0, combinators_1.printj)(v);
+    (0, combinators_1.print)(v.l !== undefined);
+    (0, combinators_1.panic)("");
     return 0;
 }
 (0, combinators_1.print)(walk(res.value));

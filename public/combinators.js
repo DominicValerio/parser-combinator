@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sequenceMap = exports.optional = exports.map = exports.sequence = exports.oneOf = exports.zeroOrMore = exports.regex = exports.str = exports.err = exports.ok = exports.ctx = exports.panic = exports.eprint = exports.printj = exports.print = void 0;
+exports.skip = exports.sequenceMap = exports.optional = exports.map = exports.sequence = exports.oneOf = exports.zeroOrMore = exports.regex = exports.str = exports.err = exports.ok = exports.ctx = exports.panic = exports.eprint = exports.printj = exports.print = void 0;
 const process_1 = require("process");
 const util_1 = __importDefault(require("util"));
 // utilities
@@ -137,3 +137,14 @@ exports.sequenceMap = sequenceMap;
 // 		return res
 // 	}
 // }
+// export const thru = (target: Parser, wrapper: (p: Parser) => Parser) => {
+// 	return wrapper(target)
+// }
+function skip(p, toSkip) {
+    return () => {
+        let { value, error } = sequence([p, toSkip])();
+        value = value[0];
+        return { value: value, error: error };
+    };
+}
+exports.skip = skip;

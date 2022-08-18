@@ -1,13 +1,14 @@
-import {regex, map, sequence, panic, print, printj, zeroOrMore, ctx, Parser, Value, sequenceMap, Result, BinOp} from "./combinators"
+import {regex, map, sequence, panic, print, printj, 
+	zeroOrMore, ctx, Parser, Value, sequenceMap, Result, BinOp, skip} from "./combinators"
 
 // local parsers
-const whitespace = regex(/( )*|(\t)*/)
+const whitespace = regex(/( |\t)*/)
 
 const num = map(
 	regex(/[0-9]+/, "No number found"), 
 	(v) => {
 		let res = parseInt(v as string)
-		return res as number
+		return res 
 	}
 )
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found")
@@ -36,7 +37,7 @@ function leftAssociate(oldValue: Value): Value {
 }
 
 const product = sequenceMap([
-	num,
+	skip(num ,whitespace),
 	zeroOrMore(sequence([mul, num]))
 ], 
 leftAssociate)
@@ -53,7 +54,7 @@ const parser = () => {
 	let error = null
 	let value = []
 	while (ctx.idx != ctx.src.length) {
-		whitespace()
+		//whitespace()
 		let v = expr()
 		if (v.error) {
 			error = v.error
@@ -77,9 +78,9 @@ function parse(src: string) {
 
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-let res = parse("2-1+2")
+let res = parse("2 *3")
 printj(res)
-print("\n")
+print("\n") 
 
 function walk(v: Value): Value {
 	//let v = res[0]
@@ -109,7 +110,10 @@ function walk(v: Value): Value {
 		panic("Found string in tree")
 		return v
 	}
-	panic("Unreachable\n")
+	print("Unreachable\n")
+	printj(v)
+	print((v as BinOp).l !== undefined)
+	panic("")
 	return 0
 }
 print(walk(res.value))

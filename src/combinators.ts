@@ -15,7 +15,7 @@ export type Context = {
 	idx: number
 }
 export type BinOp = {l: Value, op: Value, r: Value}
-export type Value = string | number | BinOp | Value[]
+export type Value = string | number | BinOp | Array<Value>
 
 export type Result = {
 	value: Value,
@@ -142,3 +142,14 @@ export const sequenceMap =
 // 	}
 // }
 
+// export const thru = (target: Parser, wrapper: (p: Parser) => Parser) => {
+// 	return wrapper(target)
+// }
+
+export function skip(p: Parser, toSkip: Parser): Parser {
+	return () => {
+		let {value, error} = sequence([p, toSkip])()
+		value = (value as Value[])[0]
+		return  {value: value, error: error}
+	}
+}

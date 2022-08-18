@@ -1,1 +1,1 @@
-A combinator parser
+A combinator parser that can parse simple math expressions like 2+2*4
