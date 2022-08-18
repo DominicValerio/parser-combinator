@@ -64,11 +64,11 @@ function zeroOrMore(p: Parser): Parser {
 	return () => {
 		let values = []
 		while (true) {
-			let temp = ctx
+			let oldIdx = ctx.idx
 			let res = p()
 			if (res.error) {
-				ctx = temp
-				break;
+				ctx.idx = oldIdx
+				return ok(values)
 			}
 			values.push(res.value)
 		}
@@ -96,7 +96,7 @@ function sequence(parsers: Parser[]): Parser {
 		let values = []
 		for (const p of parsers) {
 			let res = p()
-			if (res.error != null) {
+			if (res.error) { //return early
 				return res
 			}
 			values.push(res.value)
@@ -119,10 +119,19 @@ function optional(p: Parser): Parser {
 		let res = p()
 		if (res.error != null) {
 			ctx.idx = oldIdx
-			eprint(res.error)
-			print("\n")
+			// eprint(res.error)
+			// print("\n")
 		}
 		return {value: res.value, error: null}
+	}
+}
+
+function box(p: Parser): Parser {
+	return () => {
+		let oldIdx = ctx.idx
+		let res = p()
+		ctx.idx = oldIdx
+		return res
 	}
 }
 
@@ -136,30 +145,40 @@ const num = map(
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found")
 const additive = regex(/(\+)|(\-)/, "No additive found")
 
-function box(p: Parser): Parser {
-	return () => {
-		let oldIdx = ctx.idx
-		let res = p()
-		ctx.idx = oldIdx
+const sequenceMap = (parsers: Parser[], callback: (oldvalue: any) => any) => map(sequence(parsers), callback)
+
+function leftAssociate(oldValue: Value): any {
+	if (oldValue && oldValue.hasOwnProperty("length")) {
+		let v = oldValue as any[][]
+		let guaranteed = v[0]
+		let optionPart = v[1]
+		printj(guaranteed); print("\n") 
+		printj(optionPart); print("\n")
+		if (optionPart.length == 0) return guaranteed
+		if (optionPart.length == 1) return {l: guaranteed, op: optionPart[0][0], r: optionPart[0][1]}
+		let res: any = {l: guaranteed, op: null, r: null}
+		for (let i = 0; i < optionPart.length; i++) {
+			let [op, r] = optionPart[i]
+			res.op = op
+			res.r = r
+			if (i < optionPart.length - 1) res = {l: res, op: null, r: null}
+		}
 		return res
 	}
+	panic("unreachable\n")
 }
 
-const product = sequence([
+const product = sequenceMap([
 	num,
-	optional(sequence([mul, num]))
-])
+	zeroOrMore(sequence([mul, num]))
+], 
+leftAssociate)
 
-const sum = sequence([
+const sum = sequenceMap([
 	product,
-	optional(sequence([additive, product]))
-])
-
-
-// const expr = oneOf([
-// 	sum,
-// 	product
-// ])
+	zeroOrMore(sequence([additive, product]))
+], 
+leftAssociate)
 
 const expr = sum
 
@@ -175,7 +194,8 @@ const parser = () => {
 			printj(ctx)
 			print("\n")
 			printj(value)
-			panic("")
+			print("\n")
+			panic(error)
 			break;
 		}
 		value.push(v.value)
@@ -189,6 +209,6 @@ function parse(src: string) {
 	return parser()
 }
 
-// printj(parse("1*2+3"))
-// print("\n")
-printj(parse("3+3*2"))
+//printj(parse("1*2+3"))
+//printj(parse("2+3"))
+printj(parse("2+3+3"))

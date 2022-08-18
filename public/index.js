@@ -50,11 +50,11 @@ function zeroOrMore(p) {
     return () => {
         let values = [];
         while (true) {
-            let temp = ctx;
+            let oldIdx = ctx.idx;
             let res = p();
             if (res.error) {
-                ctx = temp;
-                break;
+                ctx.idx = oldIdx;
+                return ok(values);
             }
             values.push(res.value);
         }
@@ -82,7 +82,7 @@ function sequence(parsers) {
         let values = [];
         for (const p of parsers) {
             let res = p();
-            if (res.error != null) {
+            if (res.error) { //return early
                 return res;
             }
             values.push(res.value);
@@ -105,17 +105,12 @@ function optional(p) {
         let res = p();
         if (res.error != null) {
             ctx.idx = oldIdx;
-            eprint(res.error);
-            print("\n");
+            // eprint(res.error)
+            // print("\n")
         }
         return { value: res.value, error: null };
     };
 }
-// local parsers
-const whitespace = regex(/( )*|(\t)*/);
-const num = map(regex(/[0-9]*/, "No number found"), parseInt);
-const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
-const additive = regex(/(\+)|(\-)/, "No additive found");
 function box(p) {
     return () => {
         let oldIdx = ctx.idx;
@@ -124,18 +119,45 @@ function box(p) {
         return res;
     };
 }
-const product = sequence([
+// local parsers
+const whitespace = regex(/( )*|(\t)*/);
+const num = map(regex(/[0-9]*/, "No number found"), parseInt);
+const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
+const additive = regex(/(\+)|(\-)/, "No additive found");
+const sequenceMap = (parsers, callback) => map(sequence(parsers), callback);
+function leftAssociate(oldValue) {
+    if (oldValue && oldValue.hasOwnProperty("length")) {
+        let v = oldValue;
+        let guaranteed = v[0];
+        let optionPart = v[1];
+        printj(guaranteed);
+        print("\n");
+        printj(optionPart);
+        print("\n");
+        if (optionPart.length == 0)
+            return guaranteed;
+        if (optionPart.length == 1)
+            return { l: guaranteed, op: optionPart[0][0], r: optionPart[0][1] };
+        let res = { l: guaranteed, op: null, r: null };
+        for (let i = 0; i < optionPart.length; i++) {
+            let [op, r] = optionPart[i];
+            res.op = op;
+            res.r = r;
+            if (i < optionPart.length - 1)
+                res = { l: res, op: null, r: null };
+        }
+        return res;
+    }
+    panic("unreachable\n");
+}
+const product = sequenceMap([
     num,
-    optional(sequence([mul, num]))
-]);
-const sum = sequence([
+    zeroOrMore(sequence([mul, num]))
+], leftAssociate);
+const sum = sequenceMap([
     product,
-    optional(sequence([additive, product]))
-]);
-// const expr = oneOf([
-// 	sum,
-// 	product
-// ])
+    zeroOrMore(sequence([additive, product]))
+], leftAssociate);
 const expr = sum;
 const parser = () => {
     let error = null;
@@ -148,7 +170,8 @@ const parser = () => {
             printj(ctx);
             print("\n");
             printj(value);
-            panic("");
+            print("\n");
+            panic(error);
             break;
         }
         value.push(v.value);
@@ -160,6 +183,6 @@ function parse(src) {
     ctx.idx = 0;
     return parser();
 }
-// printj(parse("1*2+3"))
-// print("\n")
-printj(parse("3+3*2"));
+//printj(parse("1*2+3"))
+//printj(parse("2+3"))
+printj(parse("2+3+3"));
