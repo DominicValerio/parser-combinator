@@ -49,19 +49,18 @@ function regex(re, errormsg) {
 function zeroOrMore(p) {
     return () => {
         let values = [];
-        while (true) {
-            let oldIdx = ctx.idx;
-            let res = p();
-            if (res.error) {
-                ctx.idx = oldIdx;
-                return ok(values);
-            }
-            values.push(res.value);
+        let oldIdx = ctx.idx;
+        let curP = p();
+        while (!curP.error) {
+            values.push(curP.value);
+            oldIdx = ctx.idx;
+            curP = p();
         }
+        ctx.idx = oldIdx;
         return ok(values);
     };
 }
-// match one of the parsers in the list
+// match one of the parsers in the list (also called choice)
 function oneOf(parsers) {
     return () => {
         for (const p of parsers) {
@@ -72,8 +71,7 @@ function oneOf(parsers) {
             }
             ctx.idx = oldIdx;
         }
-        print("notok\n");
-        return err("No match found in choice()");
+        return err("No match found in one of the parsers");
     };
 }
 // match a sequence of requirements
@@ -125,15 +123,16 @@ const num = map(regex(/[0-9]*/, "No number found"), parseInt);
 const mul = regex(/(\*)|(\/)/, "No multiplicitave found");
 const additive = regex(/(\+)|(\-)/, "No additive found");
 const sequenceMap = (parsers, callback) => map(sequence(parsers), callback);
+// used in a sequence map, [left, [op, right]]
 function leftAssociate(oldValue) {
     if (oldValue && oldValue.hasOwnProperty("length")) {
         let v = oldValue;
         let guaranteed = v[0];
         let optionPart = v[1];
-        printj(guaranteed);
-        print("\n");
-        printj(optionPart);
-        print("\n");
+        // printj(oldValue); print("\n") 
+        // return oldValue
+        //printj(guaranteed); print("\n") 
+        // printj(optionPart); print("\n")
         if (optionPart.length == 0)
             return guaranteed;
         if (optionPart.length == 1)
@@ -185,4 +184,4 @@ function parse(src) {
 }
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-printj(parse("2+3+3"));
+printj(parse("1+2*3"));

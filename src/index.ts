@@ -63,19 +63,18 @@ function regex(re: RegExp, errormsg?: string): Parser {
 function zeroOrMore(p: Parser): Parser {
 	return () => {
 		let values = []
-		while (true) {
-			let oldIdx = ctx.idx
-			let res = p()
-			if (res.error) {
-				ctx.idx = oldIdx
-				return ok(values)
-			}
-			values.push(res.value)
+		let oldIdx = ctx.idx
+		let curP = p()
+		while (!curP.error) {
+			values.push(curP.value)
+			oldIdx = ctx.idx
+			curP = p()
 		}
+		ctx.idx = oldIdx
 		return ok(values)
 	}
 }
-// match one of the parsers in the list
+// match one of the parsers in the list (also called choice)
 function oneOf(parsers: Parser[]): Parser {
 	return () => {
 		for (const p of parsers) {
@@ -86,8 +85,7 @@ function oneOf(parsers: Parser[]): Parser {
 			}
 			ctx.idx = oldIdx
 		}
-		print("notok\n")
-		return err("No match found in choice()")
+		return err("No match found in one of the parsers")
 	}
 }
 // match a sequence of requirements
@@ -147,13 +145,16 @@ const additive = regex(/(\+)|(\-)/, "No additive found")
 
 const sequenceMap = (parsers: Parser[], callback: (oldvalue: any) => any) => map(sequence(parsers), callback)
 
+// used in a sequence map, [left, [op, right]]
 function leftAssociate(oldValue: Value): any {
 	if (oldValue && oldValue.hasOwnProperty("length")) {
 		let v = oldValue as any[][]
 		let guaranteed = v[0]
 		let optionPart = v[1]
-		printj(guaranteed); print("\n") 
-		printj(optionPart); print("\n")
+		// printj(oldValue); print("\n") 
+		// return oldValue
+		//printj(guaranteed); print("\n") 
+		// printj(optionPart); print("\n")
 		if (optionPart.length == 0) return guaranteed
 		if (optionPart.length == 1) return {l: guaranteed, op: optionPart[0][0], r: optionPart[0][1]}
 		let res: any = {l: guaranteed, op: null, r: null}
@@ -181,7 +182,6 @@ const sum = sequenceMap([
 leftAssociate)
 
 const expr = sum
-
 
 const parser = () => {
 	let error = null
@@ -211,4 +211,4 @@ function parse(src: string) {
 
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-printj(parse("2+3+3"))
+printj(parse("1+2*3"))
