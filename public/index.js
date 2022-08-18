@@ -30,11 +30,13 @@ function leftAssociate(oldValue) {
         }
         return res;
     }
-    (0, combinators_1.panic)("unreachable\n");
+    (0, combinators_1.print)("unreachable\n");
+    (0, combinators_1.printj)(oldValue);
+    (0, combinators_1.print)("\n");
     return -1;
 }
 const product = (0, combinators_1.sequenceMap)([
-    (0, combinators_1.skip)(num, whitespace),
+    num,
     (0, combinators_1.zeroOrMore)((0, combinators_1.sequence)([mul, num]))
 ], leftAssociate);
 const sum = (0, combinators_1.sequenceMap)([
@@ -68,9 +70,12 @@ function parse(src) {
 }
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-let res = parse("2 *3");
+//let res = parse("2*3+1*8+3")
+let res = parse("2 * 3 + 1 * 8 + 3");
 (0, combinators_1.printj)(res);
 (0, combinators_1.print)("\n");
+if (res.error)
+    (0, combinators_1.panic)(res.error);
 function walk(v) {
     //let v = res[0]
     if (!isNaN(v)) { // number

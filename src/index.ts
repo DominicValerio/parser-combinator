@@ -32,12 +32,13 @@ function leftAssociate(oldValue: Value): Value {
 		}
 		return res
 	}
-	panic("unreachable\n")
+	print("unreachable\n")
+	printj(oldValue); print("\n")
 	return -1
 }
 
 const product = sequenceMap([
-	skip(num ,whitespace),
+	num,
 	zeroOrMore(sequence([mul, num]))
 ], 
 leftAssociate)
@@ -78,9 +79,11 @@ function parse(src: string) {
 
 //printj(parse("1*2+3"))
 //printj(parse("2+3"))
-let res = parse("2 *3")
+//let res = parse("2*3+1*8+3")
+let res = parse("2 * 3 + 1 * 8 + 3")
 printj(res)
 print("\n") 
+if (res.error) panic(res.error)
 
 function walk(v: Value): Value {
 	//let v = res[0]
